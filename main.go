@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/irrisdev/AutoTraderBot/bot"
+	"github.com/irrisdev/AutoTraderBot/scraper"
+
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -24,6 +26,8 @@ func main() {
 	telegramStatus := make(chan string)
 
 	go bot.StartTelegramBot(telegramStatus)
+
+	go scraper.Scrape()
 
 	log.Info().Msg(<-telegramStatus)
 
