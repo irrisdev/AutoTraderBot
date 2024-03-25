@@ -25,7 +25,7 @@ func main() {
 
 	telegramStatus := make(chan string)
 
-	go bot.StartTelegramBot(telegramStatus)
+	go bot.TeleBot()
 
 	go scraper.Scrape()
 

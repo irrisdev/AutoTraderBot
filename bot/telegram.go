@@ -14,7 +14,19 @@ type sessionState struct {
 }
 
 func StartTelegramBot(done chan<- string) {
-
+	var numericKeyboard = telebot.NewInlineKeyboardMarkup(
+		telebot.NewInlineKeyboardRow(
+			telebot.NewInlineKeyboardButtonURL("1.com", "http://1.com"),
+			telebot.NewInlineKeyboardButtonData("2", "2"),
+			telebot.NewInlineKeyboardButtonData("3", "3"),
+		),
+		telebot.NewInlineKeyboardRow(
+			telebot.NewInlineKeyboardButtonData("4", "4"),
+			telebot.NewInlineKeyboardButtonData("5", "5"),
+			telebot.NewInlineKeyboardButtonData("6", "6"),
+		),
+	)
+	_ = numericKeyboard
 	//Login into bot
 	bot, err := telebot.NewBotAPI(os.Getenv("TELEGRAM_APITOKEN"))
 	if err != nil {
