@@ -137,7 +137,7 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 			session.Stage = 1
 			inlineKeyboard := telebot.NewInlineKeyboardMarkup(
 				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Start Tracking Average Price", "beginBetter"),
+					telebot.NewInlineKeyboardButtonData("Start Tracking Average Price", "begin"),
 				),
 				telebot.NewInlineKeyboardRow(
 					telebot.NewInlineKeyboardButtonData("Cancel", "cancel"),
@@ -152,8 +152,9 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 	} else if update.CallbackQuery != nil {
 		MessageID := update.CallbackQuery.Message.MessageID
 		ChatID := update.CallbackQuery.Message.Chat.ID
-
 		session, exists := sessions[ChatID]
+
+		//Makes sure program doesn't error if user CallbackQuery is outside session scope
 		if !exists {
 			newMsg := telebot.NewMessage(ChatID, "Use /start to begin")
 			sentMsg, err := bot.Send(newMsg)
@@ -176,126 +177,20 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 			session.deleteSession()
 
 		case "begin":
-			newReplyKeyboard := telebot.NewReplyKeyboard(
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Audi"),
-					telebot.NewKeyboardButton("BMW"),
-					telebot.NewKeyboardButton("Ford"),
-				),
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Jaguar"),
-					telebot.NewKeyboardButton("Land Rover"),
-					telebot.NewKeyboardButton("Mercedes"),
-				),
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Nissan"),
-					telebot.NewKeyboardButton("Porsche"),
-					telebot.NewKeyboardButton("Toyota"),
-				),
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Vauxhall"),
-					telebot.NewKeyboardButton("Volkswagen"),
-					telebot.NewKeyboardButton("Volvo"),
-				),
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Other"),
-				),
-				telebot.NewKeyboardButtonRow(
-					telebot.NewKeyboardButton("Back"),
-					telebot.NewKeyboardButton("Cancel"),
-					telebot.NewKeyboardButton("Next"),
-				),
-			)
-			newMsg := telebot.NewMessage(session.ChatID, "ok")
-			newMsg.ReplyMarkup = newReplyKeyboard
-
-			send(session, newMsg)
-
-		case "beginBetter":
-
-			topLevel := telebot.NewInlineKeyboardMarkup(
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Popular Makes", "popular"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("German", "german"),
-					telebot.NewInlineKeyboardButtonData("British", "british"),
-					telebot.NewInlineKeyboardButtonData("Japanese", "japanese"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Other", "other"),
-					telebot.NewInlineKeyboardButtonData("Cancel", "cancel"),
-				),
-			)
-
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the vehicle manufacture", topLevel)
-
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the vehicle manufacture", getInlineKeyboard("begin"))
 			sendEditMessage(editMessage)
 
-			//germanCarsRow := telebot.NewInlineKeyboardRow(
-			//	telebot.NewInlineKeyboardButtonData("Audi", "Audi"),
-			//	telebot.NewInlineKeyboardButtonData("BMW", "BMW"),
-			//	telebot.NewInlineKeyboardButtonData("Mercedes", "Mercedes"),
-			//	telebot.NewInlineKeyboardButtonData("Porsche", "Porsche"),
-			//)
-			//britishCarsRow := telebot.NewInlineKeyboardRow(
-			//	telebot.NewInlineKeyboardButtonData("Jaguar", "Jaguar"),
-			//	telebot.NewInlineKeyboardButtonData("Land Rover", "LandRover"),
-			//	telebot.NewInlineKeyboardButtonData("Vauxhall", "Vauxhall"),
-			//	telebot.NewInlineKeyboardButtonData("Volkswagen", "Volkswagen"),
-			//)
-			//japaneseCarsRow := telebot.NewInlineKeyboardRow(
-			//	telebot.NewInlineKeyboardButtonData("Nissan", "Nissan"),
-			//	telebot.NewInlineKeyboardButtonData("Toyota", "Toyota"),
-			//	telebot.NewInlineKeyboardButtonData("Volvo", "Volvo"),
-			//)
 		case "popular":
-			popularKeyboard := telebot.NewInlineKeyboardMarkup(
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Audi", "Audi"),
-					telebot.NewInlineKeyboardButtonData("BMW", "BMW"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Ford", "Ford"),
-					telebot.NewInlineKeyboardButtonData("Jaguar", "Jaguar"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Land Rover", "Land_Rover"),
-					telebot.NewInlineKeyboardButtonData("Mercedes", "Mercedes"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Back", "beginBetter"),
-					telebot.NewInlineKeyboardButtonData("Cancel", "cancel"),
-					telebot.NewInlineKeyboardButtonData("Next", "nextPopular"),
-				),
-			)
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", popularKeyboard)
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", getInlineKeyboard("popular"))
 			sendEditMessage(editMessage)
+
 		case "nextPopular":
-			nextPopular := telebot.NewInlineKeyboardMarkup(
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Nissan", "Nissan"),
-					telebot.NewInlineKeyboardButtonData("Porsche", "Porsche"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Toyota", "Toyota"),
-					telebot.NewInlineKeyboardButtonData("Vauxhall", "Vauxhall"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Volkswagen", "Volkswagen"),
-					telebot.NewInlineKeyboardButtonData("Volvo", "Volvo"),
-				),
-				telebot.NewInlineKeyboardRow(
-					telebot.NewInlineKeyboardButtonData("Back", "popular"),
-					telebot.NewInlineKeyboardButtonData("Cancel", "cancel"),
-				),
-			)
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", nextPopular)
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", getInlineKeyboard("nextPopular"))
 			sendEditMessage(editMessage)
 
 		}
-		_, err := bot.Send(telebot.NewCallback(update.CallbackQuery.ID, ""))
-		_ = err
+
+		return
 
 	}
 
