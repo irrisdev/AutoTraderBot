@@ -26,6 +26,7 @@ func main() {
 
 	go bot.TeleBot(status)
 
+	//scraper.ScrapeMakes()
 	log.Info().Msg(<-status)
 
 }

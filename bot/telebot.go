@@ -130,10 +130,7 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 
 		switch update.Message.Command() {
 		case "start":
-			if session.Stage > 0 {
-				deleteMsg(ChatID, MessageID)
-				return
-			}
+
 			session.Stage = 1
 			inlineKeyboard := telebot.NewInlineKeyboardMarkup(
 				telebot.NewInlineKeyboardRow(
@@ -171,22 +168,32 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 
 		data := update.CallbackQuery.Data
 
+		if session.Stage > 2 {
+			_, exists := AllCarMakes[data]
+			if exists {
+				fmt.Println(data)
+			}
+		}
+
 		switch data {
 
 		case "cancel":
 			session.deleteSession()
 
 		case "begin":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the vehicle manufacture", getInlineKeyboard("begin"))
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the vehicle manufacture", KeyboardMap[data])
 			sendEditMessage(editMessage)
+			session.Stage = 2
 
 		case "popular":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", getInlineKeyboard("popular"))
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", KeyboardMap[data])
 			sendEditMessage(editMessage)
+			session.Stage = 3
 
 		case "nextPopular":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", getInlineKeyboard("nextPopular"))
+			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", KeyboardMap[data])
 			sendEditMessage(editMessage)
+			session.Stage = 3
 
 		}
 
