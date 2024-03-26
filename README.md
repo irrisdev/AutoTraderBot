@@ -1,2 +1,2 @@
 # AutoTraderBot
-Fetches and updates average prices of certain vehicles from AutoTrader to Twitter and Telegram.
+Fetches and updates average prices of certain vehicles from AutoTrader via telegram bot.
