@@ -1,14 +1,25 @@
-package scraper
+package bot
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/url"
 )
 
-const Postcode string = "M110AA"
+var Postcodes = []string{
+	"M110AA",
+	"BH37AY",
+	"HP49DS",
+	"TA65FE",
+	"M67GU",
+	"RH123ED",
+	"M201LU",
+	"BT490FQ",
+	"DE30TD",
+	"CB215HQ",
+	"BH118RJ",
+}
 
-type carRequest struct {
+type CarRequest struct {
 	Postcode       string
 	Make           string
 	Model          string
@@ -17,7 +28,7 @@ type carRequest struct {
 	YearTo         string
 }
 
-func (r *carRequest) getCarParams() string {
+func (r *CarRequest) getCarParams() string {
 
 	params := url.Values{}
 	params.Set("postcode", r.Postcode)
@@ -31,26 +42,11 @@ func (r *carRequest) getCarParams() string {
 
 }
 
-func Scrape() {
-
-	req := carRequest{
-		Postcode:       Postcode,
-		Make:           "Volkswagen",
-		Model:          "Polo",
-		AggregatedTrim: "",
-		YearFrom:       "2010",
-		YearTo:         "2020",
-	}
+func createURL(req *CarRequest) string {
 
 	urlParams := req.getCarParams()
 	urlString := fmt.Sprintf("https://www.autotrader.co.uk/car-search?%s", urlParams)
-	urlParsed, err := url.Parse(urlString)
 
-	if err != nil {
-		log.Err(err).Msg("Failed to parse target URL")
-		return
-	}
-
-	fmt.Println(urlParsed)
+	return urlString
 
 }

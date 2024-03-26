@@ -1,4 +1,4 @@
-package scraper
+package bot
 
 import (
 	"fmt"
@@ -43,3 +43,22 @@ func ScrapeMakes() {
 	}
 	fmt.Println(result)
 }
+
+func ScrapeModels(session *UserSession, complete chan<- bool) {
+
+	log.Info().Msg("Begging Scrape")
+	newReq := session.RequestDetails
+	url := createURL(&newReq)
+	log.Info().Msg(url)
+
+	complete <- true
+}
+
+//
+//func ScrapeModelTest() {
+//	browser := rod.New().Timeout(time.Minute).MustConnect()
+//	defer browser.MustClose()
+//
+//	page := stealth.MustPage(browser)
+//
+//}

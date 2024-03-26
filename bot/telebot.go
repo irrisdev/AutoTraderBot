@@ -2,10 +2,16 @@ package bot
 
 import (
 	"fmt"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/proto"
 	telebot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
+	"github.com/ysmood/gson"
+	"math/rand/v2"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,11 +22,12 @@ var bot *telebot.BotAPI
 var err error
 
 type UserSession struct {
-	ChatID       int64
-	Messages     map[int]struct{}
-	UserMessages map[int]struct{}
-	BotMessages  map[int]struct{}
-	Stage        int
+	chatID         int64
+	Messages       map[int]struct{}
+	Stage          string
+	RequestDetails CarRequest
+	CarDetails     string
+	Choosing       bool
 }
 
 func (s *UserSession) deleteSession() {
@@ -29,16 +36,16 @@ func (s *UserSession) deleteSession() {
 
 	func(msgs map[int]struct{}) {
 		for msgId := range msgs {
-			go deleteMessage(s.ChatID, msgId, &wg)
+			go deleteMessage(s.chatID, msgId, &wg)
 		}
 	}(s.Messages)
 
 	wg.Wait()
-	delete(sessions, s.ChatID)
+	delete(sessions, s.chatID)
 }
 
-func deleteMessage(ChatID int64, MessageId int, group *sync.WaitGroup) {
-	deleteMsg := telebot.NewDeleteMessage(ChatID, MessageId)
+func deleteMessage(chatID int64, messageID int, group *sync.WaitGroup) {
+	deleteMsg := telebot.NewDeleteMessage(chatID, messageID)
 	_, err := bot.Request(deleteMsg)
 	_ = err
 	group.Done()
@@ -63,7 +70,10 @@ func TeleBot(status chan<- string) {
 	}
 
 	log.Info().Msg("Authorised on account " + bot.Self.UserName)
-
+	err := telebot.SetLogger(&log.Logger)
+	if err != nil {
+		return
+	}
 	bot.Debug = true
 	updateConfig := telebot.NewUpdate(0)
 	updateConfig.Timeout = 60
@@ -94,8 +104,8 @@ func waitForExit(sig chan os.Signal) {
 
 }
 
-func deleteMsg(chatId int64, messageId int) {
-	deleteMsg := telebot.NewDeleteMessage(chatId, messageId)
+func deleteMsg(chatID int64, messageID int) {
+	deleteMsg := telebot.NewDeleteMessage(chatID, messageID)
 	if _, err := bot.Request(deleteMsg); err != nil {
 		log.Err(err).Msg("Failed to delete message")
 	}
@@ -103,35 +113,35 @@ func deleteMsg(chatId int64, messageId int) {
 
 func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 	if update.Message != nil {
-		MessageID := update.Message.MessageID
+		messageID := update.Message.MessageID
 		UserID := update.Message.From.ID
-		ChatID := update.Message.Chat.ID
+		chatID := update.Message.Chat.ID
 
 		session, exists := sessions[UserID]
 		if !exists {
 			session = &UserSession{
-				ChatID:       ChatID,
-				Messages:     map[int]struct{}{},
-				UserMessages: map[int]struct{}{},
-				BotMessages:  map[int]struct{}{},
-				Stage:        0,
+				chatID:   chatID,
+				Messages: map[int]struct{}{},
+				Stage:    "start",
+				RequestDetails: CarRequest{
+					Postcode: Postcodes[rand.IntN(len(Postcodes))],
+				},
+				CarDetails: "Car Request Details\n",
 			}
 			sessions[UserID] = session
 		}
 
-		session.UserMessages[MessageID] = struct{}{}
-		session.Messages[MessageID] = struct{}{}
+		session.Messages[messageID] = struct{}{}
 
 		msg := telebot.NewMessage(update.Message.Chat.ID, "")
 
-		if update.Message.Text == "Cancel" && session.Stage > 0 {
+		if update.Message.Text == "Cancel" && session.Stage == "start" {
 			session.deleteSession()
 		}
-
 		switch update.Message.Command() {
 		case "start":
 
-			session.Stage = 1
+			session.Stage = "begin"
 			inlineKeyboard := telebot.NewInlineKeyboardMarkup(
 				telebot.NewInlineKeyboardRow(
 					telebot.NewInlineKeyboardButtonData("Start Tracking Average Price", "begin"),
@@ -142,37 +152,99 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 			)
 			msg.Text = fmt.Sprintf("Welcome, @%s! Please select an option", update.Message.Chat.UserName)
 			msg.ReplyMarkup = inlineKeyboard
+			send(session, msg)
+
+		case "screenshot":
+			url := update.Message.CommandArguments()
+			argsLen := strings.Split(update.Message.Text, " ")
+			if len(argsLen) != 2 {
+				msg := telebot.NewMessage(chatID, "Invalid website")
+				msg.ReplyToMessageID = update.Message.MessageID
+				_, err := bot.Send(msg)
+				if err != nil {
+					log.Err(err).Msg("Error while sending message")
+				}
+				return
+			}
+			if !strings.HasPrefix(url, "https://") {
+				url = "https://" + url
+			}
+
+			resp, err := http.Get(url)
+			if err != nil {
+				msg := telebot.NewMessage(chatID, "Invalid website")
+				msg.ReplyToMessageID = update.Message.MessageID
+				_, err := bot.Send(msg)
+				if err != nil {
+					log.Err(err).Msg("Error while sending message")
+				}
+				return
+			}
+			defer resp.Body.Close()
+
+			// Check the response status code
+			if resp.StatusCode != http.StatusOK {
+				msg := telebot.NewMessage(chatID, "Invalid website")
+				msg.ReplyToMessageID = update.Message.MessageID
+				_, err := bot.Send(msg)
+				if err != nil {
+					log.Err(err).Msg("Error while sending message")
+				}
+				return
+			}
+
+			page := rod.New().MustConnect().MustPage(url).MustWaitLoad()
+
+			page.MustWindowMaximize()
+			img, _ := page.Screenshot(false, &proto.PageCaptureScreenshot{
+				Format:  proto.PageCaptureScreenshotFormatJpeg,
+				Quality: gson.Int(90),
+			})
+			msg := telebot.NewPhoto(chatID, telebot.FileBytes{Bytes: img})
+			_, err = bot.Send(msg)
+			if err != nil {
+				log.Err(err).Msg("Error while sending image")
+			}
+
 		}
 
-		send(session, msg)
-
 	} else if update.CallbackQuery != nil {
-		MessageID := update.CallbackQuery.Message.MessageID
-		ChatID := update.CallbackQuery.Message.Chat.ID
-		session, exists := sessions[ChatID]
+
+		messageID := update.CallbackQuery.Message.MessageID
+		chatID := update.CallbackQuery.Message.Chat.ID
+		session, exists := sessions[chatID]
 
 		//Makes sure program doesn't error if user CallbackQuery is outside session scope
 		if !exists {
-			newMsg := telebot.NewMessage(ChatID, "Use /start to begin")
+			newMsg := telebot.NewMessage(chatID, "Use /start to begin")
 			sentMsg, err := bot.Send(newMsg)
 			if err != nil {
 				log.Err(err).Msg("Error while sending Message")
 			}
 			go func() {
 				time.Sleep(time.Second * 3)
-				deleteMsg(ChatID, sentMsg.MessageID)
+				deleteMsg(chatID, sentMsg.MessageID)
 			}()
-			deleteMsg(ChatID, MessageID)
+			deleteMsg(chatID, messageID)
 			return
 		}
 
 		data := update.CallbackQuery.Data
 
-		if session.Stage > 2 {
-			_, exists := AllCarMakes[data]
-			if exists {
-				fmt.Println(data)
-			}
+		//If callback is a make
+		if _, exists := AllCarMakes[data]; exists {
+			complete := make(chan bool)
+
+			session.RequestDetails.Make = data
+
+			go ScrapeModels(session, complete)
+
+			session.CarDetails += fmt.Sprintf("\nMake : %s\n\nChoose the vehicle model", session.RequestDetails.Make)
+
+			<-complete
+			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, session.CarDetails, KeyboardMap["model"])
+			sendEditMessage(editMessage)
+			return
 		}
 
 		switch data {
@@ -181,20 +253,16 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 			session.deleteSession()
 
 		case "begin":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the vehicle manufacture", KeyboardMap[data])
+			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, "Choose the vehicle manufacture", KeyboardMap[data])
 			sendEditMessage(editMessage)
-			session.Stage = 2
 
 		case "popular":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", KeyboardMap[data])
+			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, "Choose the make of the vehicle", KeyboardMap[data])
 			sendEditMessage(editMessage)
-			session.Stage = 3
 
 		case "nextPopular":
-			editMessage := telebot.NewEditMessageTextAndMarkup(ChatID, MessageID, "Choose the make of the vehicle", KeyboardMap[data])
+			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, "Choose the make of the vehicle", KeyboardMap[data])
 			sendEditMessage(editMessage)
-			session.Stage = 3
-
 		}
 
 		return
@@ -202,6 +270,19 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 	}
 
 }
+
+//func getRequestString(details scraper.CarRequest, result string) string {
+//
+//	result = fmt.Sprintf("Car Request Details:\n"+
+//		"Make: %s\n"+
+//		"Model: %s\n"+
+//		"Trim: %s\n"+
+//		"Year From: %s\n"+
+//		"Year To: %s\n",
+//		details.Make, details.Model, details.AggregatedTrim, details.YearFrom, details.YearTo)
+//
+//	return result
+//}
 
 func send(session *UserSession, msg telebot.MessageConfig) {
 
@@ -214,7 +295,6 @@ func send(session *UserSession, msg telebot.MessageConfig) {
 		log.Err(err).Msg("An error occurred while sending a message")
 	}
 	msgID := sentMsg.MessageID
-	session.BotMessages[msgID] = struct{}{}
 	session.Messages[msgID] = struct{}{}
 
 }

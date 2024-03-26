@@ -206,4 +206,9 @@ var KeyboardMap = map[string]tgbotapi.InlineKeyboardMarkup{
 			tgbotapi.NewInlineKeyboardButtonData("Cancel", "cancel"),
 		),
 	),
+	"model": tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Models", "back"),
+		),
+	),
 }
