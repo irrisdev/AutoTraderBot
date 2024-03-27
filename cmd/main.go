@@ -24,9 +24,9 @@ func main() {
 
 	status := make(chan string)
 
-	//go bot.TeleBot(status)
+	go bot.TeleBot(status)
 	//bot.ScrapeModelTest()
-	bot.ScrapeMakes()
+	//bot.ScrapeMakes()
 	log.Info().Msg(<-status)
 
 }

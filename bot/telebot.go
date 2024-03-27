@@ -231,10 +231,11 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 		}
 
 		data := update.CallbackQuery.Data
-
 		//If callback is a make
 		if _, exists := AllCarMakes[data]; exists {
-			//complete := make(chan bool)
+
+			progress := make(chan string)
+			result := make(chan []string)
 
 			session.RequestDetails.Make = data
 
@@ -242,9 +243,48 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 
 			session.CarDetails += fmt.Sprintf("\nMake : %s\n\nChoose the vehicle model", session.RequestDetails.Make)
 
-			//<-complete
-			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, session.CarDetails, KeyboardMap["model"])
-			sendEditMessage(editMessage)
+			go ScrapeModels(session, progress, result)
+			for {
+				select {
+
+				case p, ok := <-progress:
+
+					if !ok {
+						progress = nil
+						continue
+					}
+					kboard := telebot.NewInlineKeyboardMarkup(
+						telebot.NewInlineKeyboardRow(
+							telebot.NewInlineKeyboardButtonData(p, "Wait"),
+						),
+					)
+					editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, session.CarDetails, kboard)
+					sendEditMessage(editMessage)
+
+				case r, ok := <-result:
+					if !ok {
+						fmt.Println("Result channel closed")
+					}
+					fmt.Println(r)
+					var resultGroups [][]string
+					for i := 0; i < len(r); i += 9 {
+						end := i + 9
+						if end > len(r) {
+							end = len(r)
+						}
+						resultGroups = append(resultGroups, r[i:end])
+					}
+					for group := range resultGroups {
+						fmt.Println(group)
+					}
+
+				}
+				if result == nil {
+					break
+				}
+
+			}
+
 			return
 		}
 

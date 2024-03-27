@@ -1,6 +1,8 @@
 package bot
 
-import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+import (
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
 
 var carMakes = []string{
 	"Audi",
@@ -211,4 +213,19 @@ var KeyboardMap = map[string]tgbotapi.InlineKeyboardMarkup{
 			tgbotapi.NewInlineKeyboardButtonData("Models", "back"),
 		),
 	),
+}
+
+func createKeyboard(r []string) tgbotapi.InlineKeyboardMarkup {
+
+	var inlinekeys [][]tgbotapi.InlineKeyboardButton
+
+	for x := 0; x < len(r)-1; x += 2 {
+		var row []tgbotapi.InlineKeyboardButton
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(r[x], r[x]))
+		inlinekeys = append(inlinekeys, row)
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(r[x+1], r[x+1]))
+		inlinekeys = append(inlinekeys, row)
+
+	}
+	return tgbotapi.NewInlineKeyboardMarkup(inlinekeys...)
 }
