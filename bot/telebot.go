@@ -2,16 +2,11 @@ package bot
 
 import (
 	"fmt"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
 	telebot "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog/log"
-	"github.com/ysmood/gson"
 	"math/rand/v2"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,6 +15,8 @@ import (
 var sessions = make(map[int64]*UserSession)
 var bot *telebot.BotAPI
 var err error
+
+//var counter = 0
 
 type UserSession struct {
 	chatID         int64
@@ -154,58 +151,62 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 			msg.ReplyMarkup = inlineKeyboard
 			send(session, msg)
 
-		case "screenshot":
-			url := update.Message.CommandArguments()
-			argsLen := strings.Split(update.Message.Text, " ")
-			if len(argsLen) != 2 {
-				msg := telebot.NewMessage(chatID, "Invalid website")
-				msg.ReplyToMessageID = update.Message.MessageID
-				_, err := bot.Send(msg)
-				if err != nil {
-					log.Err(err).Msg("Error while sending message")
-				}
-				return
-			}
-			if !strings.HasPrefix(url, "https://") {
-				url = "https://" + url
-			}
-
-			resp, err := http.Get(url)
-			if err != nil {
-				msg := telebot.NewMessage(chatID, "Invalid website")
-				msg.ReplyToMessageID = update.Message.MessageID
-				_, err := bot.Send(msg)
-				if err != nil {
-					log.Err(err).Msg("Error while sending message")
-				}
-				return
-			}
-			defer resp.Body.Close()
-
-			// Check the response status code
-			if resp.StatusCode != http.StatusOK {
-				msg := telebot.NewMessage(chatID, "Invalid website")
-				msg.ReplyToMessageID = update.Message.MessageID
-				_, err := bot.Send(msg)
-				if err != nil {
-					log.Err(err).Msg("Error while sending message")
-				}
-				return
-			}
-
-			page := rod.New().MustConnect().MustPage(url).MustWaitLoad()
-
-			page.MustWindowMaximize()
-			img, _ := page.Screenshot(false, &proto.PageCaptureScreenshot{
-				Format:  proto.PageCaptureScreenshotFormatJpeg,
-				Quality: gson.Int(90),
-			})
-			msg := telebot.NewPhoto(chatID, telebot.FileBytes{Bytes: img})
-			_, err = bot.Send(msg)
-			if err != nil {
-				log.Err(err).Msg("Error while sending image")
-			}
-
+			//case "screenshot":
+			//	url := update.Message.CommandArguments()
+			//	argsLen := strings.Split(update.Message.Text, " ")
+			//	if len(argsLen) != 2 {
+			//		msg := telebot.NewMessage(chatID, "Invalid website")
+			//		msg.ReplyToMessageID = update.Message.MessageID
+			//		_, err := bot.Send(msg)
+			//		if err != nil {
+			//			log.Err(err).Msg("Error while sending message")
+			//		}
+			//		return
+			//	}
+			//	if !strings.HasPrefix(url, "https://") {
+			//		url = "https://" + url
+			//	}
+			//
+			//	resp, err := http.Get(url)
+			//	if err != nil {
+			//		msg := telebot.NewMessage(chatID, "Invalid website")
+			//		msg.ReplyToMessageID = update.Message.MessageID
+			//		_, err := bot.Send(msg)
+			//		if err != nil {
+			//			log.Err(err).Msg("Error while sending message")
+			//		}
+			//		return
+			//	}
+			//	defer resp.Body.Close()
+			//
+			//	// Check the response status code
+			//	if resp.StatusCode != http.StatusOK {
+			//		msg := telebot.NewMessage(chatID, "Invalid website")
+			//		msg.ReplyToMessageID = update.Message.MessageID
+			//		_, err := bot.Send(msg)
+			//		if err != nil {
+			//			log.Err(err).Msg("Error while sending message")
+			//		}
+			//		return
+			//	}
+			//
+			//	page := rod.New().MustConnect().MustPage(url).MustWaitLoad()
+			//
+			//	page.MustWindowMaximize()
+			//	img, _ := page.Screenshot(false, &proto.PageCaptureScreenshot{
+			//		Format:  proto.PageCaptureScreenshotFormatJpeg,
+			//		Quality: gson.Int(90),
+			//	})
+			//
+			//	_ = utils.OutputFile(fmt.Sprintf("screenshots/%d.jpg", counter), img)
+			//	counter++
+			//	msg := telebot.NewPhoto(chatID, telebot.FileBytes{Bytes: img})
+			//	sentMsg, err := bot.Send(msg)
+			//	if err != nil {
+			//		log.Err(err).Msg("Error while sending image")
+			//	}
+			//	session.Messages[sentMsg.MessageID] = struct{}{}
+			//
 		}
 
 	} else if update.CallbackQuery != nil {
@@ -233,15 +234,15 @@ func handleUpdate(bot *telebot.BotAPI, update *telebot.Update) {
 
 		//If callback is a make
 		if _, exists := AllCarMakes[data]; exists {
-			complete := make(chan bool)
+			//complete := make(chan bool)
 
 			session.RequestDetails.Make = data
 
-			go ScrapeModels(session, complete)
+			//go ScrapeModels(session, complete)
 
 			session.CarDetails += fmt.Sprintf("\nMake : %s\n\nChoose the vehicle model", session.RequestDetails.Make)
 
-			<-complete
+			//<-complete
 			editMessage := telebot.NewEditMessageTextAndMarkup(chatID, messageID, session.CarDetails, KeyboardMap["model"])
 			sendEditMessage(editMessage)
 			return
