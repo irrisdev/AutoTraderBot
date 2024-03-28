@@ -71,10 +71,9 @@ func ScrapeModels(session *UserSession, progress chan<- string, result chan<- []
 	}
 
 	progress <- "No Existing models... Scraping off AutoTrader"
-	log.Info().Msg("Begging Scrape of model")
 	newReq := session.RequestDetails
 	urlS := createURL(&newReq)
-	log.Info().Msg(urlS)
+	log.Debug().Msg(fmt.Sprintf("Scraping %s", urlS))
 
 	go ScrapeModelURL(urlS, progress, result, manufacture)
 }
@@ -283,13 +282,16 @@ func InsertAll(carMakes []string, wg *sync.WaitGroup) {
 
 	}
 
+	db := openDb()
+	defer db.Close()
+
 	for _, m := range carMakes {
-		log.Info().Msg(fmt.Sprintf("Getting %s", m))
+		log.Debug().Msg(fmt.Sprintf("Getting models of make %s", m))
 		params := url.Values{}
 		params.Set("postcode", pst)
 		params.Set("make", m)
 		urlS := fmt.Sprintf("https://www.autotrader.co.uk/car-search?%s", params.Encode())
-		log.Info().Msg(urlS)
+		log.Debug().Msg(urlS)
 		page.Timeout(time.Minute * 5)
 		page.MustNavigate(urlS)
 		page.MustWaitStable()
@@ -313,34 +315,31 @@ func InsertAll(carMakes []string, wg *sync.WaitGroup) {
 		}
 
 		var modelsSlice []string
-		db := openDb()
-		defer db.Close()
+
 		query := "SELECT EXISTS(SELECT 1 FROM models WHERE model = '%s' AND make = '%s')"
 
 		doc.Find(".at__sc-1n64n0d-9.at__sc-qzn93z-3.bWawNd.eXNMEw").Each(func(i int, selection *goquery.Selection) {
 			text := selection.Text()
 
 			sqlStatement := fmt.Sprintf(query, text, m)
-			fmt.Println("SQL statement:", sqlStatement)
+			log.Debug().Msg(fmt.Sprintf("SQL statement: %s", sqlStatement))
 
 			var exists int
 			err = db.QueryRow(sqlStatement).Scan(&exists)
 			if err != nil {
 				log.Err(err)
 			}
-			fmt.Println(exists)
 
 			if exists == 1 {
-				log.Info().Msg("Already exists... Skipping")
+				log.Debug().Msg(fmt.Sprintf("%s %s Already exists... Skipping", m, text))
 				return
 			}
 
 			modelsSlice = append(modelsSlice, text)
 		})
 
-		log.Info().Msg(fmt.Sprintf("Results of %s %v", m, modelsSlice))
+		log.Debug().Msg(fmt.Sprintf("Results of %s %v", m, modelsSlice))
 
-		fmt.Println(modelsSlice)
 		insertModels(modelsSlice, m)
 
 	}
@@ -352,10 +351,10 @@ func InsertAll(carMakes []string, wg *sync.WaitGroup) {
 func isDisabled(element *rod.Element) bool {
 	attr, _ := element.Attribute("disabled")
 
-	newString := fmt.Sprintf("%V", attr)
+	newString := fmt.Sprintf("%v", attr)
 
 	if !strings.Contains(newString, "nil") {
-		log.Info().Msg("button disabled")
+		log.Debug().Msg("No Models")
 		return true
 	}
 	return false
